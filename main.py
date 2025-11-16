@@ -1,3 +1,5 @@
+from PIL import Image
+
 def bitstream(data, n):
     bits = "0100" + "".join(f"{byte:08b}" for byte in data.encode('utf-8')) + "0000" #zamienić na bity z 0100 na początku i 0000 na końcu
     a = True
@@ -126,18 +128,18 @@ def QR(data):
         fill()
         return qr
 
+def png(qr, outfile="qr.png", scale=10):
+    size = len(qr)
+    img = Image.new("L", (size, size), 255)  # 255 = białe
+    px = img.load()
+
+    for y in range(size):
+        for x in range(size):
+            px[x, y] = 0 if qr[y][x] == "1" else 255
+
+    img = img.resize((size * scale, size * scale), Image.Resampling.NEAREST)
+    img.save(outfile)
+
 if __name__ == '__main__':
     data = input("podaj ciąg do zmiany na qr: ")
-    if len(data) < 19:
-        qr = QR(data)
-        for i in qr:
-            for j in i:
-                if j == '1':
-                    print("▉▉▉", end="")
-                else:
-                    print("   ", end="")
-            print()
-        #print(len(ECC(data, 19))//8)
-        #print(ECC(data, 19))
-    else:
-        print("za długie :(")
+    png(QR(data))
