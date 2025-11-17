@@ -63,6 +63,19 @@ def QR(data):
                 for dx in range(7):
                     qr[y + dy][x + dx] = pat[dy][dx]
 
+            if x==y==0:
+                for i in range(8):
+                    qr[y + 7][x + i] = "0"
+                    qr[y + i][x + 7] = "0"
+            elif x>0:
+                for i in range(8):
+                    qr[y + 7][x + i - 1] = "0"
+                    qr[y + i][x - 1] = "0"
+            elif y>0:
+                for i in range(8):
+                    qr[y - 1][x + i] = "0"
+                    qr[y + i - 1][x + 7] = "0"
+
     def put_timing():
         for i in range(8, 21 - 8):
             a = "1" if i % 2 == 0 else "0"
@@ -73,20 +86,26 @@ def QR(data):
         fmt = 0b111011111000100
         bits = [str((fmt >> (14 - i)) & 1) for i in range(15)]
 
+        for i in range(8):
+            qr[20 - i][8] = bits[i]
+        qr[13][8] = "1"
+
+        for i in range(6):
+            qr[8][i] = bits[i]
+
         qr[8][7] = bits[6]
         qr[8][8] = bits[7]
         qr[7][8] = bits[8]
 
         for i in range(6):
-            qr[8][i] = bits[i]
-        for i in range(6):
-            qr[i][8] = bits[9 + i]
+            qr[5 - i][8] = bits[9 + i]
+
         for i in range(8):
-            qr[20 - i][8] = bits[i]
-        for i in range(7):
-            qr[8][20 - i] = bits[7 + i]
+            qr[8][13 + i] = bits[7 + i]
 
     def fill():
+        nonlocal a
+        nonlocal b
         i = 0
         x = y = 20
         direction = -1
@@ -101,8 +120,11 @@ def QR(data):
 
                     if qr[yy][xx] == "-":
                         if i >= len(ecc):
-                            qr[yy][xx] = "0" #ostatecznie ma być 0
+                            print("error, za małe ecc")
+                            qr[yy][xx] = "0"
+                            b += 1
                         else:
+                            a += 1
                             if (yy + xx) % 2 == 0:
                                 qr[yy][xx] = "1" if ecc[i] == "0" else "0"
                             else:
@@ -116,6 +138,7 @@ def QR(data):
             x -= 2
 
     if len(data) < 19:
+        a = b = 0
         n = 19
         ecc = ECC(data, n)
         qr = [["-" for _ in range(21)] for _ in range(21)]
@@ -125,6 +148,11 @@ def QR(data):
         put_finder(14, 0)
         put_timing()
         put_format()
+        # print(sum(1 for r in qr for c in r if c == "-"))
+        # for i in qr:
+        #     for j in i:
+        #         print(j, end="")
+        #     print()
         fill()
         return qr
 
