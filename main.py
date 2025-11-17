@@ -83,12 +83,8 @@ def QR(data):
             qr[6][i] = a
 
     def put_format():
-        fmt = 0b111011111000100
+        fmt = 0b111011111000101
         bits = [str((fmt >> (14 - i)) & 1) for i in range(15)]
-
-        for i in range(8):
-            qr[20 - i][8] = bits[i]
-        qr[13][8] = "1"
 
         for i in range(6):
             qr[8][i] = bits[i]
@@ -99,6 +95,10 @@ def QR(data):
 
         for i in range(6):
             qr[5 - i][8] = bits[9 + i]
+
+        for i in range(7):
+            qr[20 - i][8] = bits[i]
+        qr[13][8] = "1"
 
         for i in range(8):
             qr[8][13 + i] = bits[7 + i]
@@ -146,13 +146,17 @@ def QR(data):
         put_finder(0, 0)
         put_finder(0, 14)
         put_finder(14, 0)
-        put_timing()
-        put_format()
-        # print(sum(1 for r in qr for c in r if c == "-"))
         # for i in qr:
         #     for j in i:
         #         print(j, end="")
         #     print()
+        put_timing()
+        put_format()
+        # print(sum(1 for r in qr for c in r if c == "-"))
+        for i in qr:
+            for j in i:
+                print(j, end="")
+            print()
         fill()
         return qr
 
