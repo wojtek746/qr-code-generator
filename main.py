@@ -15,39 +15,47 @@ def bitstream(data, n):
         a = not a
     return bits
 
-def ECC(data, n): #zakładam, że n = 19
-    alog = [1]
-    for i in range(1, 256):
-        x = alog[-1] << 1
-        if x & 0x100:
-            x ^= 0x11D
-        alog.append(x)
-
-    log = [0] * 256
-    for i in range(255):
-        log[alog[i]] = i
-
+def gf(data, n):
     def gf_mul(a, b):
         if a == 0 or b == 0:
             return 0
-        return alog[(log[a] + log[b]) % 255]
+        return alog[log[a] + log[b]]
 
-    def gf_poly_div(data, gen):
-        buf = data[:]
-        for i in range(len(data) - len(gen) + 1):
-            coef = buf[i]
-            if coef != 0:
-                for j in range(1, len(gen)):
-                    buf[i + j] ^= gf_mul(gen[j], coef)
-        return buf[-(len(gen) - 1):]
+    log = [0] * 256
+    alog = [0] * 512
 
-    gen = [1, 87, 229, 146, 149, 238, 102, 21]
+    x = 1
+    for i in range(255):
+        alog[i] = x
+        log[x] = i
+        x <<= 1
+        if x & 0x100:
+            x ^= 0x11d
+    for i in range(255, 512):
+        alog[i] = alog[i - 255]
 
+    g = [1]
+    for i in range(n):
+        gen = [gf_mul(c, 1) for c in g] + [0]
+        for j in range(len(g)):
+            gen[j + 1] = gen[j + 1] ^ gf_mul(g[j], alog[i])
+        g = gen[:]
+
+    msg = data + [0] * n
+    for i in range(len(data)):
+        coef = msg[i]
+        if coef != 0:
+            for j in range(1, n+1):
+                msg[i + j] = msg[i + j] ^ gf_mul(g[j], coef)
+
+    return msg[-n:]
+
+def ECC(data, n): #zakładam, że n = 19
     bits = bitstream(data, n)
+
     b = [int(bits[i:i+8], 2) for i in range(0, len(bits), 8)]
 
-    gf = gf_poly_div(b, gen)
-    ecc = "".join(f"{byte:08b}" for byte in b + gf)
+    ecc = "".join(f"{byte:08b}" for byte in b + gf(b, 7))
 
     return ecc
 
