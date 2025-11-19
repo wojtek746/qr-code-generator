@@ -1,7 +1,11 @@
 from PIL import Image
 
 def bitstream(data, n):
-    bits = "0100" + "".join(f"{byte:08b}" for byte in data.encode('utf-8')) + "0000" #zamienić na bity z 0100 na początku i 0000 na końcu
+    bits = "0100" + f"{len(data):08b}" #byte mode in level L (od wersji 10 musi być :16b)
+    bits += "".join(f"{byte:08b}" for byte in data.encode('utf-8')) + "0000" #konwertujemy dane do 8 bitowych codeków, od wersji 10 CHYBA muszą być 16 bitowe...
+    for _ in range((8 - (len(bits) % 8)) % 8): #uzupełniamy do pełnego bajtu
+        bits += "0"
+
     a = True
     for i in range(n - len(bits)//8): #uzupełnić do n bajtów
         if a:
@@ -40,8 +44,8 @@ def ECC(data, n): #zakładam, że n = 19
     gen = [1, 87, 229, 146, 149, 238, 102, 21]
 
     bits = bitstream(data, n)
-
     b = [int(bits[i:i+8], 2) for i in range(0, len(bits), 8)]
+
     gf = gf_poly_div(b, gen)
     ecc = "".join(f"{byte:08b}" for byte in b + gf)
 
@@ -49,7 +53,7 @@ def ECC(data, n): #zakładam, że n = 19
 
 def QR(data):
     def put_finder(x, y):
-        if n <= 19:
+        if n == 1:
             pat = [
                 "1111111",
                 "1000001",
@@ -82,8 +86,8 @@ def QR(data):
             qr[i][6] = a
             qr[6][i] = a
 
-    def put_format():
-        fmt = 0b111011111000101
+    def put_format(len):
+        fmt = 0b001011010001001
         bits = [str((fmt >> (14 - i)) & 1) for i in range(15)]
 
         for i in range(6):
@@ -97,67 +101,65 @@ def QR(data):
             qr[5 - i][8] = bits[9 + i]
 
         for i in range(7):
-            qr[20 - i][8] = bits[i]
-        qr[13][8] = "1"
+            qr[len - i][8] = bits[i]
+        qr[len - 7][8] = "1"
 
         for i in range(8):
-            qr[8][13 + i] = bits[7 + i]
+            qr[8][len - 7 + i] = bits[7 + i]
 
     def fill():
         nonlocal a
         nonlocal b
         i = 0
-        x = y = 20
+        max = 0
+        if n == 1:
+            max = 20
+        x = y = max
         direction = -1
 
         while x > 0:
             if x == 6:
                 x -= 1
-            for _ in range(21):
+            while True:
                 for dx in (0, -1):
                     xx = x + dx
-                    yy = y
 
-                    if qr[yy][xx] == "-":
+                    if qr[y][xx] == "-":
                         if i >= len(ecc):
                             print("error, za małe ecc")
-                            qr[yy][xx] = "0"
-                            b += 1
+                            qr[y][xx] = "0"
                         else:
-                            a += 1
-                            if (yy + xx) % 2 == 0:
-                                qr[yy][xx] = "1" if ecc[i] == "0" else "0"
+                            if (y + xx) % 2 == 0:
+                                qr[y][xx] = "1" if ecc[i] == "0" else "0"
                             else:
-                                qr[yy][xx] = ecc[i]
-                        i += 1
+                                qr[y][xx] = ecc[i]
+                            i += 1
                 y += direction
-                if y < 0 or y > 20:
+                if y < 0 or y > max:
                     y -= direction
                     direction *= -1
                     break
             x -= 2
 
-    if len(data) < 19:
+    if len(data) <= 17:
         a = b = 0
-        n = 19
-        ecc = ECC(data, n)
+        n = 1
+        ecc = ECC(data, 19)
+        print(ecc)
         qr = [["-" for _ in range(21)] for _ in range(21)]
 
         put_finder(0, 0)
         put_finder(0, 14)
         put_finder(14, 0)
+        put_timing()
+        put_format(20)
+        slots = sum(1 for r in qr for c in r if c == "-")
+        assert slots == 208, slots
+        fill()
         # for i in qr:
         #     for j in i:
         #         print(j, end="")
         #     print()
-        put_timing()
-        put_format()
-        # print(sum(1 for r in qr for c in r if c == "-"))
-        for i in qr:
-            for j in i:
-                print(j, end="")
-            print()
-        fill()
         return qr
 
 def png(qr, outfile="qr.png", scale=10):
