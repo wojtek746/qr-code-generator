@@ -87,7 +87,7 @@ def QR(data):
             qr[6][i] = a
 
     def put_format(len):
-        fmt = 0b001011010001001
+        fmt = 0b111011111000100
         bits = [str((fmt >> (14 - i)) & 1) for i in range(15)]
 
         for i in range(6):
