@@ -200,6 +200,10 @@ def QR(data):
         n = 5
         size = 37
         ecc = ECC(data, 106, 26)
+    elif len(data) <= 134:
+        n = 6
+        size = 41
+        ecc = ECC(data, 134, 26)
     else:
         print("zbyt długi napis")
         return ["0"]
@@ -235,5 +239,6 @@ def png(qr, outfile="qr.png", scale=10):
 
 if __name__ == '__main__':
 
-    data = "".join(" " if i % 10 == 9 else "a" for i in range(106)) #input("podaj ciąg do zmiany na qr: ")
+    #data = "".join(" " if i % 10 == 9 else "a" for i in range(106))
+    data = input("podaj ciąg do zmiany na qr: ")
     png(QR(data))
