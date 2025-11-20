@@ -50,125 +50,166 @@ def gf(data, n):
 
     return msg[-n:]
 
-def ECC(data, n): #zakładam, że n = 19
+def ECC(data, n, g):
+    n += 2
     bits = bitstream(data, n)
 
     b = [int(bits[i:i+8], 2) for i in range(0, len(bits), 8)]
 
-    ecc = "".join(f"{byte:08b}" for byte in b + gf(b, 7))
+    ecc = "".join(f"{byte:08b}" for byte in b + gf(b, g))
 
     return ecc
 
-def QR(data):
-    def put_finder(x, y):
-        if n == 1:
-            pat = [
-                "1111111",
-                "1000001",
-                "1011101",
-                "1011101",
-                "1011101",
-                "1000001",
-                "1111111",
-            ]
-            for dy in range(7):
-                for dx in range(7):
-                    qr[y + dy][x + dx] = pat[dy][dx]
+def put_finders(qr, size, n):
+    pat = [
+        "1111111",
+        "1000001",
+        "1011101",
+        "1011101",
+        "1011101",
+        "1000001",
+        "1111111",
+    ]
+    for dy in range(7):
+        for dx in range(7):
+            qr[dy][dx] = pat[dy][dx]
+            qr[size-7 + dy][dx] = pat[dy][dx]
+            qr[dy][size-7 + dx] = pat[dy][dx]
 
-            if x==y==0:
-                for i in range(8):
-                    qr[y + 7][x + i] = "0"
-                    qr[y + i][x + 7] = "0"
-            elif x>0:
-                for i in range(8):
-                    qr[y + 7][x + i - 1] = "0"
-                    qr[y + i][x - 1] = "0"
-            elif y>0:
-                for i in range(8):
-                    qr[y - 1][x + i] = "0"
-                    qr[y + i - 1][x + 7] = "0"
+    for i in range(8):
+        qr[7][i] = "0"
+        qr[i][7] = "0"
+    for i in range(8):
+        qr[7][size-8 + i] = "0"
+        qr[i][size-8] = "0"
+    for i in range(8):
+        qr[size-8][i] = "0"
+        qr[size-8 + i][7] = "0"
 
-    def put_timing():
-        for i in range(8, 21 - 8):
-            a = "1" if i % 2 == 0 else "0"
-            qr[i][6] = a
-            qr[6][i] = a
+    pat2 = [
+        "11111",
+        "10001",
+        "10101",
+        "10001",
+        "11111",
+    ]
 
-    def put_format(len):
+    loc = [
+        [],
+        [6],
+        [6, 18],
+        [6, 22],
+        [6, 26],
+        [6, 30],
+        [6, 34],
+        [6, 22, 38],
+        [6, 24, 42],
+        [6, 26, 46],
+        [6, 28, 50],
+        [6, 30, 54],
+        [6, 32, 58],
+        [6, 34, 62]
+    ]
+
+    for i in range(n):
+        for j in range(n):
+            if not((i==0 and j==0) or (i==0 and j==n-1) or (i==n-1 and j==0)):
+                for dx in range(5):
+                    for dy in range(5):
+                        qr[dy + loc[n][j] - 2][dx + loc[n][i] - 2] = pat2[dy][dx]
+
+def put_timing(qr, size):
+    for i in range(8, size - 8):
+        a = "1" if i % 2 == 0 else "0"
+        qr[i][6] = a
+        qr[6][i] = a
+
+def put_format(qr, size, n):
+    if n == 1:
         fmt = 0b111011111000100
-        bits = [str((fmt >> (14 - i)) & 1) for i in range(15)]
+    elif n == 2:
+        fmt = 0b111011111000100
+    bits = [str((fmt >> (14 - i)) & 1) for i in range(15)]
 
-        for i in range(6):
-            qr[8][i] = bits[i]
+    for i in range(6):
+        qr[8][i] = bits[i]
 
-        qr[8][7] = bits[6]
-        qr[8][8] = bits[7]
-        qr[7][8] = bits[8]
+    qr[8][7] = bits[6]
+    qr[8][8] = bits[7]
+    qr[7][8] = bits[8]
 
-        for i in range(6):
-            qr[5 - i][8] = bits[9 + i]
+    for i in range(6):
+        qr[5 - i][8] = bits[9 + i]
 
-        for i in range(7):
-            qr[len - i][8] = bits[i]
-        qr[len - 7][8] = "1"
+    for i in range(7):
+        qr[size-1 - i][8] = bits[i]
+    qr[size - 8][8] = "1"
 
-        for i in range(8):
-            qr[8][len - 7 + i] = bits[7 + i]
+    for i in range(8):
+        qr[8][size - 8 + i] = bits[7 + i]
 
-    def fill():
-        nonlocal a
-        nonlocal b
-        i = 0
-        max = 0
-        if n == 1:
-            max = 20
-        x = y = max
-        direction = -1
+def fill(qr, size, data):
+    i = 0
+    x = y = size-1
+    direction = -1
+    err = 0
 
-        while x > 0:
-            if x == 6:
-                x -= 1
-            while True:
-                for dx in (0, -1):
-                    xx = x + dx
+    while x > 0:
+        if x == 6:
+            x -= 1
+        while True:
+            for dx in (0, -1):
+                xx = x + dx
 
-                    if qr[y][xx] == "-":
-                        if i >= len(ecc):
-                            print("error, za małe ecc")
-                            qr[y][xx] = "0"
+                if qr[y][xx] == "-":
+                    if i >= len(data):
+                        qr[y][xx] = "0"
+                        err += 1
+                    else:
+                        if (y + xx) % 2 == 0:
+                            qr[y][xx] = "1" if data[i] == "0" else "0"
                         else:
-                            if (y + xx) % 2 == 0:
-                                qr[y][xx] = "1" if ecc[i] == "0" else "0"
-                            else:
-                                qr[y][xx] = ecc[i]
-                            i += 1
-                y += direction
-                if y < 0 or y > max:
-                    y -= direction
-                    direction *= -1
-                    break
-            x -= 2
+                            qr[y][xx] = data[i]
+                        i += 1
+            y += direction
+            if y < 0 or y >= size:
+                y -= direction
+                direction *= -1
+                break
+        x -= 2
+    assert i == len(data)
+    if err > 0:
+        print(f"{err} bitów puste")
 
+def QR(data):
     if len(data) <= 17:
-        a = b = 0
         n = 1
-        ecc = ECC(data, 19)
-        print(ecc)
-        qr = [["-" for _ in range(21)] for _ in range(21)]
+        size = 21
+        ecc = ECC(data, 17, 7)
+    elif len(data) <= 32:
+        n = 2
+        size = 25
+        ecc = ECC(data, 32, 10)
+    else:
+        print("zbyt długi napis")
+        return ["0"]
 
-        put_finder(0, 0)
-        put_finder(0, 14)
-        put_finder(14, 0)
-        put_timing()
-        put_format(20)
-        slots = sum(1 for r in qr for c in r if c == "-")
-        assert slots == 208, slots
-        fill()
-        # for i in qr:
-        #     for j in i:
-        #         print(j, end="")
-        #     print()
-        return qr
+    print(ecc)
+    qr = [["-" for _ in range(size)] for _ in range(size)]
+
+    put_finders(qr, size, n)
+    put_timing(qr, size)
+    put_format(qr, size, n)
+
+    # slots = sum(1 for r in qr for c in r if c == "-")
+
+    # for i in qr:
+    #     for j in i:
+    #         print(j, end="")
+    #     print()
+
+    fill(qr, size, ecc)
+    return qr
 
 def png(qr, outfile="qr.png", scale=10):
     size = len(qr)
@@ -183,5 +224,6 @@ def png(qr, outfile="qr.png", scale=10):
     img.save(outfile)
 
 if __name__ == '__main__':
-    data = input("podaj ciąg do zmiany na qr: ")
+
+    data = "".join(" " if i % 10 == 9 else "a" for i in range(32)) #input("podaj ciąg do zmiany na qr: ")
     png(QR(data))
