@@ -111,9 +111,10 @@ def put_finders(qr, size, n):
         [6, 34, 62]
     ]
 
-    for i in range(n):
-        for j in range(n):
-            if not((i==0 and j==0) or (i==0 and j==n-1) or (i==n-1 and j==0)):
+    l = len(loc[n])
+    for i in range(l):
+        for j in range(l):
+            if not((i==0 and j==0) or (i==0 and j==l-1) or (i==l-1 and j==0)):
                 for dx in range(5):
                     for dy in range(5):
                         qr[dy + loc[n][j] - 2][dx + loc[n][i] - 2] = pat2[dy][dx]
@@ -124,11 +125,8 @@ def put_timing(qr, size):
         qr[i][6] = a
         qr[6][i] = a
 
-def put_format(qr, size, n):
-    if n == 1:
-        fmt = 0b111011111000100
-    elif n == 2:
-        fmt = 0b111011111000100
+def put_format(qr, size):
+    fmt = 0b111011111000100
     bits = [str((fmt >> (14 - i)) & 1) for i in range(15)]
 
     for i in range(6):
@@ -190,6 +188,10 @@ def QR(data):
         n = 2
         size = 25
         ecc = ECC(data, 32, 10)
+    elif len(data) <= 53:
+        n = 3
+        size = 29
+        ecc = ECC(data, 53, 15)
     else:
         print("zbyt długi napis")
         return ["0"]
@@ -199,14 +201,14 @@ def QR(data):
 
     put_finders(qr, size, n)
     put_timing(qr, size)
-    put_format(qr, size, n)
+    put_format(qr, size)
 
     # slots = sum(1 for r in qr for c in r if c == "-")
 
-    # for i in qr:
-    #     for j in i:
-    #         print(j, end="")
-    #     print()
+    for i in qr:
+        for j in i:
+            print(j, end="")
+        print()
 
     fill(qr, size, ecc)
     return qr
@@ -225,5 +227,5 @@ def png(qr, outfile="qr.png", scale=10):
 
 if __name__ == '__main__':
 
-    data = "".join(" " if i % 10 == 9 else "a" for i in range(32)) #input("podaj ciąg do zmiany na qr: ")
+    data = "".join(" " if i % 10 == 9 else "a" for i in range(53)) #input("podaj ciąg do zmiany na qr: ")
     png(QR(data))
