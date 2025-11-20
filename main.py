@@ -7,7 +7,7 @@ def bitstream(data, n):
         bits += "0"
 
     a = True
-    for i in range(n - len(bits)//8): #uzupełnić do n bajtów
+    for i in range(n+2 - len(bits)//8): #uzupełnić do n bajtów
         if a:
             bits += "11101100" #0xEC
         else:
@@ -15,7 +15,7 @@ def bitstream(data, n):
         a = not a
     return bits
 
-def gf(data, n):
+def gf(data, n, bytes): #dodać, żeby dzielił to jakoś na grupy, jak w bytes
     def gf_mul(a, b):
         if a == 0 or b == 0:
             return 0
@@ -50,13 +50,12 @@ def gf(data, n):
 
     return msg[-n:]
 
-def ECC(data, n, g):
-    n += 2
+def ECC(data, n, g, bytes):
     bits = bitstream(data, n)
 
     b = [int(bits[i:i+8], 2) for i in range(0, len(bits), 8)]
 
-    ecc = "".join(f"{byte:08b}" for byte in b + gf(b, g))
+    ecc = "".join(f"{byte:08b}" for byte in b + gf(b, g, bytes))
 
     return ecc
 
@@ -180,31 +179,20 @@ def fill(qr, size, data):
         print(f"{err} bitów puste")
 
 def QR(data):
-    if len(data) <= 17:
-        n = 1
-        size = 21
-        ecc = ECC(data, 17, 7)
-    elif len(data) <= 32:
-        n = 2
-        size = 25
-        ecc = ECC(data, 32, 10)
-    elif len(data) <= 53:
-        n = 3
-        size = 29
-        ecc = ECC(data, 53, 15)
-    elif len(data) <= 78:
-        n = 4
-        size = 33
-        ecc = ECC(data, 78, 20)
-    elif len(data) <= 106:
-        n = 5
-        size = 37
-        ecc = ECC(data, 106, 26)
-    elif len(data) <= 134:
-        n = 6
-        size = 41
-        ecc = ECC(data, 134, 26)
-    else:
+    lengths = [17, 32, 53, 78, 106, 134, 154, 192, 230, 271]
+    sizes = [21 + i*4 for i in range(10)]
+    errs = [7, 10, 15, 20, 26, [18, 18]]
+    bytes = [19, 34, 55, 80, 108, [68, 68]]
+    isDone = False
+
+    for i in range(5):
+        if len(data) <= lengths[i]:
+            n = i
+            size = sizes[i]
+            ecc = ECC(data, lengths[i], errs[i], bytes[i])
+            isDone = True
+
+    if not isDone:
         print("zbyt długi napis")
         return ["0"]
 
