@@ -1,7 +1,7 @@
 from PIL import Image
 
 def bitstream(data, n):
-    bits = "0100" + f"{len(data):08b}" #byte mode in level L (od wersji 10 musi być :16b)
+    bits = "0100" + f"{len(data.encode('utf-8')):08b}" #byte mode in level L (od wersji 10 musi być :16b)
     bits += "".join(f"{byte:08b}" for byte in data.encode('utf-8')) + "0000" #konwertujemy dane do 8 bitowych codeków, od wersji 10 CHYBA muszą być 16 bitowe...
     for _ in range((8 - (len(bits) % 8)) % 8): #uzupełniamy do pełnego bajtu
         bits += "0"
@@ -185,12 +185,15 @@ def QR(data):
     bytes = [19, 34, 55, 80, 108, [68, 68]]
     isDone = False
 
+    size=n=0
+    ecc=""
     for i in range(5):
         if len(data) <= lengths[i]:
-            n = i
+            n = i+1
             size = sizes[i]
             ecc = ECC(data, lengths[i], errs[i], bytes[i])
             isDone = True
+            break
 
     if not isDone:
         print("zbyt długi napis")
@@ -205,10 +208,10 @@ def QR(data):
 
     # slots = sum(1 for r in qr for c in r if c == "-")
 
-    for i in qr:
-        for j in i:
-            print(j, end="")
-        print()
+    # for i in qr:
+    #     for j in i:
+    #         print(j, end="")
+    #     print()
 
     fill(qr, size, ecc)
     return qr
@@ -226,7 +229,6 @@ def png(qr, outfile="qr.png", scale=10):
     img.save(outfile)
 
 if __name__ == '__main__':
-
     #data = "".join(" " if i % 10 == 9 else "a" for i in range(106))
     data = input("podaj ciąg do zmiany na qr: ")
     png(QR(data))
